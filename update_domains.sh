@@ -9,12 +9,18 @@ fi
 # Load environment variables from the .env file
 source .env
 
+# Temporary directory
+tempDir="tmp"
+
+# Ensure the tmp directory exists
+mkdir -p "$tempDir"
+
 # Temporary files
-tempRemoteDomains="temp_remote_domains.txt"
-tempNormalizedRemoteDomains="temp_normalized_remote_domains.txt"
-tempNormalizedLocalDomains="temp_normalized_local_domains.txt"
-tempAllDomains="temp_all_domains.txt"
-tempFilteredDomains="temp_filtered_domains.txt"
+tempRemoteDomains="$tempDir/temp_remote_domains.txt"
+tempNormalizedRemoteDomains="$tempDir/temp_normalized_remote_domains.txt"
+tempNormalizedLocalDomains="$tempDir/temp_normalized_local_domains.txt"
+tempAllDomains="$tempDir/temp_all_domains.txt"
+tempFilteredDomains="$tempDir/temp_filtered_domains.txt"
 
 # Read the domain list from the router via SSH
 ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath" > "$tempRemoteDomains"
@@ -40,5 +46,5 @@ mv "$tempFilteredDomains" "$localDomainsFile"
 # Execute the command to reload the homeproxy service
 ssh -i "$sshKeyPath" "$routerUser@$routerHost" "/etc/init.d/homeproxy reload"
 
-# Remove temporary files
-rm "$tempRemoteDomains" "$tempNormalizedRemoteDomains" "$tempNormalizedLocalDomains" "$tempAllDomains"
+# Remove the temporary directory and its contents
+rm -rf "$tempDir"
