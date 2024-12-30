@@ -7,7 +7,23 @@ if [ ! -f .env ]; then
 fi
 
 # Load environment variables from the .env file
+set -a
 source .env
+set +a
+
+# Assign variables
+routerHost=$ROUTER_HOST
+routerUser=$ROUTER_USER
+sshKeyPath=$SSH_KEY_PATH
+domainsFilePath=$DOMAINS_FILE_PATH
+localDomainsFile=$LOCAL_DOMAINS_FILE
+reloadCommand=$RELOAD_COMMAND
+
+# Verify if all environment variables are set
+if [ -z "$routerHost" ] || [ -z "$routerUser" ] || [ -z "$sshKeyPath" ] || [ -z "$domainsFilePath" ] || [ -z "$localDomainsFile" ] || [ -z "$reloadCommand" ]; then
+  echo "Error: One or more environment variables are not set"
+  exit 1
+fi
 
 # Temporary directory
 tempDir="tmp"
@@ -23,11 +39,11 @@ tempAllDomains="$tempDir/temp_all_domains.txt"
 tempFilteredDomains="$tempDir/temp_filtered_domains.txt"
 
 # Read the domain list from the router via SSH
-ssh -i "$SSH_KEY_PATH" "$ROUTER_USER@$ROUTER_HOST" "cat $DOMAINS_FILE_PATH" > "$tempRemoteDomains"
+ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath" > "$tempRemoteDomains"
 
 # Merge domain lists and remove empty lines and lines starting with #
 cat "$tempRemoteDomains" | tr -d '\r' > "$tempNormalizedRemoteDomains"
-cat "$LOCAL_DOMAINS_FILE" | tr -d '\r' > "$tempNormalizedLocalDomains"
+cat "$localDomainsFile" | tr -d '\r' > "$tempNormalizedLocalDomains"
 
 cat "$tempNormalizedRemoteDomains" "$tempNormalizedLocalDomains" | grep -v '^$' | grep -v '^#' | sort -u > "$tempAllDomains"
 
@@ -38,13 +54,13 @@ grep -vxf <(grep '^#' "$tempNormalizedLocalDomains" | sed 's/^#//') "$tempAllDom
 updatedDomains=$(cat "$tempFilteredDomains")
 
 # Send the updated domain list back to the router via SSH using echo
-ssh -i "$SSH_KEY_PATH" "$ROUTER_USER@$ROUTER_HOST" "echo \"$updatedDomains\" > $DOMAINS_FILE_PATH"
+ssh -i "$sshKeyPath" "$routerUser@$routerHost" "echo \"$updatedDomains\" > $domainsFilePath"
 
 # Save the updated domain list to the local file
-mv "$tempFilteredDomains" "$LOCAL_DOMAINS_FILE"
+mv "$tempFilteredDomains" "$localDomainsFile"
 
 # Remove the temporary directory and its contents
 rm -rf "$tempDir"
 
 # Execute the reload command
-ssh -i "$SSH_KEY_PATH" "$ROUTER_USER@$ROUTER_HOST" "$RELOAD_COMMAND"
+ssh -i "$sshKeyPath" "$routerUser@$routerHost" "$reloadCommand"

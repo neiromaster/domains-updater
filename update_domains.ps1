@@ -10,13 +10,19 @@ $envVars = Get-Content .env | ForEach-Object {
     [System.Environment]::SetEnvironmentVariable($name, $value)
 }
 
-# Data for connecting to the router
+# Assign variables
 $routerHost = $env:ROUTER_HOST
 $routerUser = $env:ROUTER_USER
 $sshKeyPath = $env:SSH_KEY_PATH
 $domainsFilePath = $env:DOMAINS_FILE_PATH
 $localDomainsFile = $env:LOCAL_DOMAINS_FILE
 $reloadCommand = $env:RELOAD_COMMAND
+
+# Verify if all environment variables are set
+if (-Not $routerHost) -or (-Not $routerUser) -or (-Not $sshKeyPath) -or (-Not $domainsFilePath) -or (-Not $localDomainsFile) -or (-Not $reloadCommand) {
+    Write-Error "Error: One or more environment variables are not set"
+    exit 1
+}
 
 # Temporary directory
 $tempDir = "tmp"
