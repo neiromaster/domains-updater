@@ -42,8 +42,8 @@ tempFilteredDomains="$tempDir/temp_filtered_domains.txt"
 ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath" > "$tempRemoteDomains"
 
 # Merge domain lists and remove empty lines and lines starting with #
-cat "$tempRemoteDomains" | tr -d '\r' > "$tempNormalizedRemoteDomains"
-cat "$localDomainsFile" | tr -d '\r' > "$tempNormalizedLocalDomains"
+< "$tempRemoteDomains" tr -d '\r' > "$tempNormalizedRemoteDomains"
+< "$localDomainsFile" tr -d '\r' > "$tempNormalizedLocalDomains"
 
 cat "$tempNormalizedRemoteDomains" "$tempNormalizedLocalDomains" | grep -v '^$' | grep -v '^#' | sort -u > "$tempAllDomains"
 

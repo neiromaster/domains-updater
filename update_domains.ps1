@@ -5,9 +5,17 @@ if (-Not (Test-Path .env)) {
 }
 
 # Load environment variables from the .env file
-$envVars = Get-Content .env | ForEach-Object {
-    $name, $value = $_ -split '='
-    [System.Environment]::SetEnvironmentVariable($name, $value)
+$envFilePath = ".env"
+Get-Content $envFilePath | ForEach-Object {
+    # Skip empty lines and comments (#)
+    if (-not ($_ -match "^\s*#") -and ($_ -match "^\s*(\w+)\s*=\s*(.*)\s*$")) {
+        $name = $matches[1]
+        $value = $matches[2]
+
+        $value = $value.Trim('"')
+        # Set the environment variable
+        [System.Environment]::SetEnvironmentVariable($name, $value, [System.EnvironmentVariableTarget]::Process)
+    }
 }
 
 # Assign variables
@@ -19,7 +27,7 @@ $localDomainsFile = $env:LOCAL_DOMAINS_FILE
 $reloadCommand = $env:RELOAD_COMMAND
 
 # Verify if all environment variables are set
-if (-Not $routerHost) -or (-Not $routerUser) -or (-Not $sshKeyPath) -or (-Not $domainsFilePath) -or (-Not $localDomainsFile) -or (-Not $reloadCommand) {
+if (-Not $routerHost -or -Not $routerUser -or -Not $sshKeyPath -or -Not $domainsFilePath -or -Not $localDomainsFile -or -Not $reloadCommand) {
     Write-Error "Error: One or more environment variables are not set"
     exit 1
 }
