@@ -13,18 +13,25 @@ The scripts perform the following actions:
 6. Copy the updated domain list back to the router.
 7. Execute the command to reload the `homeproxy` service on the router.
 
+## Requirements
+
+- SSH access to the router
+- Configuration file `.env`
+- Bash (for Unix-like systems) or PowerShell (for Windows)
+
 ## Setup
 
 ### 1. Create a `.env` File
 
-Create a `.env` file in the root directory of the repository with the following variables:
+Create a `.env` file in the root directory of the repository with the following variables. You can use the `.env.example` file provided in the repository as a template.
 
 ```env
 ROUTER_HOST=your_router_ip_address
 ROUTER_USER=your_username
-SSH_KEY_PATH=$HOME/.ssh/id_rsa
+SSH_KEY_PATH=~/.ssh/id_rsa
 DOMAINS_FILE_PATH=/path/to/domain_file_on_router
 LOCAL_DOMAINS_FILE=path/to/local_domains_file.txt
+RELOAD_COMMAND="/etc/init.d/homeproxy reload"
 ```
 
 ### 2. Install Dependencies
