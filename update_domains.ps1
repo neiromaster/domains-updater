@@ -16,6 +16,7 @@ $routerUser = $env:ROUTER_USER
 $sshKeyPath = $env:SSH_KEY_PATH
 $domainsFilePath = $env:DOMAINS_FILE_PATH
 $localDomainsFile = $env:LOCAL_DOMAINS_FILE
+$reloadCommand = $env:RELOAD_COMMAND
 
 # Temporary directory
 $tempDir = "tmp"
@@ -55,8 +56,8 @@ ssh -i $sshKeyPath "$routerUser@$routerHost" "echo `"$updatedDomains`" > $domain
 # Save the updated domain list to the local file
 Copy-Item $tempFilteredDomains $localDomainsFile
 
-# Execute the command to reload the homeproxy service
-ssh -i $sshKeyPath "$routerUser@$routerHost" "/etc/init.d/homeproxy reload"
-
 # Remove the temporary directory and its contents
 Remove-Item -Recurse -Force $tempDir
+
+# Execute the reload command
+ssh -i $sshKeyPath "$routerUser@$routerHost" "$reloadCommand"

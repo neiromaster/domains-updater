@@ -23,11 +23,11 @@ tempAllDomains="$tempDir/temp_all_domains.txt"
 tempFilteredDomains="$tempDir/temp_filtered_domains.txt"
 
 # Read the domain list from the router via SSH
-ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath" > "$tempRemoteDomains"
+ssh -i "$SSH_KEY_PATH" "$ROUTER_USER@$ROUTER_HOST" "cat $DOMAINS_FILE_PATH" > "$tempRemoteDomains"
 
 # Merge domain lists and remove empty lines and lines starting with #
 cat "$tempRemoteDomains" | tr -d '\r' > "$tempNormalizedRemoteDomains"
-cat "$localDomainsFile" | tr -d '\r' > "$tempNormalizedLocalDomains"
+cat "$LOCAL_DOMAINS_FILE" | tr -d '\r' > "$tempNormalizedLocalDomains"
 
 cat "$tempNormalizedRemoteDomains" "$tempNormalizedLocalDomains" | grep -v '^$' | grep -v '^#' | sort -u > "$tempAllDomains"
 
@@ -38,13 +38,13 @@ grep -vxf <(grep '^#' "$tempNormalizedLocalDomains" | sed 's/^#//') "$tempAllDom
 updatedDomains=$(cat "$tempFilteredDomains")
 
 # Send the updated domain list back to the router via SSH using echo
-ssh -i "$sshKeyPath" "$routerUser@$routerHost" "echo \"$updatedDomains\" > $domainsFilePath"
+ssh -i "$SSH_KEY_PATH" "$ROUTER_USER@$ROUTER_HOST" "echo \"$updatedDomains\" > $DOMAINS_FILE_PATH"
 
 # Save the updated domain list to the local file
-mv "$tempFilteredDomains" "$localDomainsFile"
-
-# Execute the command to reload the homeproxy service
-ssh -i "$sshKeyPath" "$routerUser@$routerHost" "/etc/init.d/homeproxy reload"
+mv "$tempFilteredDomains" "$LOCAL_DOMAINS_FILE"
 
 # Remove the temporary directory and its contents
 rm -rf "$tempDir"
+
+# Execute the reload command
+ssh -i "$SSH_KEY_PATH" "$ROUTER_USER@$ROUTER_HOST" "$RELOAD_COMMAND"
