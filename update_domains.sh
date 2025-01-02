@@ -65,8 +65,12 @@ tempNormalizedLocalDomains="$tempDir/temp_normalized_local_domains.txt"
 tempAllDomains="$tempDir/temp_all_domains.txt"
 tempFilteredDomains="$tempDir/temp_filtered_domains.txt"
 
-# Read the domain list from the router via SSH
-ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath" > "$tempRemoteDomains"
+# Read the domain list from the router via SSH and check for success
+if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath" > "$tempRemoteDomains"; then
+  echo "Error: Failed to read domains from the router"
+  rm -rf "$tempDir"
+  exit 1
+fi
 
 # Merge domain lists and remove empty lines and lines starting with #
 < "$tempRemoteDomains" tr -d '\r' > "$tempNormalizedRemoteDomains"
@@ -80,8 +84,12 @@ grep -vxf <(grep '^#' "$tempNormalizedLocalDomains" | sed 's/^#//') "$tempAllDom
 # Read the updated domain list into a variable
 updatedDomains=$(cat "$tempFilteredDomains")
 
-# Send the updated domain list back to the router via SSH using echo
-ssh -i "$sshKeyPath" "$routerUser@$routerHost" "echo \"$updatedDomains\" > $domainsFilePath"
+# Send the updated domain list back to the router via SSH using echo and check for success
+if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "echo \"$updatedDomains\" > $domainsFilePath"; then
+  echo "Error: Failed to update domains on the router"
+  rm -rf "$tempDir"
+  exit 1
+fi
 
 # Save the updated domain list to the local file
 mv "$tempFilteredDomains" "$localDomainsFile"
@@ -89,5 +97,9 @@ mv "$tempFilteredDomains" "$localDomainsFile"
 # Remove the temporary directory and its contents
 rm -rf "$tempDir"
 
-# Execute the reload command
-ssh -i "$sshKeyPath" "$routerUser@$routerHost" "$reloadCommand"
+# Execute the reload command and check for success
+if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "$reloadCommand"; then
+  echo "Error: Failed to execute reload command"
+  rm -rf "$tempDir"
+  exit 1
+fi

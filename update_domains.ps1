@@ -54,8 +54,14 @@ $tempNormalizedLocalDomains = "$tempDir/temp_normalized_local_domains.txt"
 $tempAllDomains = "$tempDir/temp_all_domains.txt"
 $tempFilteredDomains = "$tempDir/temp_filtered_domains.txt"
 
-# Read the domain list from the router
-ssh -i $sshKeyPath "$routerUser@$routerHost" "cat $domainsFilePath" | Out-File $tempRemoteDomains -Encoding utf8
+# Read the domain list from the router and check for success
+$readDomains = ssh -i $sshKeyPath "$routerUser@$routerHost" "cat $domainsFilePath"
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Error: Failed to read domains from the router"
+    Remove-Item -Recurse -Force $tempDir
+    exit 1
+}
+$readDomains | Out-File $tempRemoteDomains -Encoding utf8
 
 # Normalize line endings to \n and write to new temporary files
 Get-Content $tempRemoteDomains | ForEach-Object {$_ -replace "`r", ""} | Set-Content $tempNormalizedRemoteDomains
@@ -71,8 +77,13 @@ Get-Content $tempAllDomains | Where-Object {$_ -notin $deleteDomains} | Out-File
 # Read the updated domain list into a variable
 $updatedDomains = Get-Content $tempFilteredDomains -Raw
 
-# Send the updated domain list back to the router via SSH using echo
+# Send the updated domain list back to the router via SSH using echo and check for success
 ssh -i $sshKeyPath "$routerUser@$routerHost" "echo `"$updatedDomains`" > $domainsFilePath"
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Error: Failed to update domains on the router"
+    Remove-Item -Recurse -Force $tempDir
+    exit 1
+}
 
 # Save the updated domain list to the local file
 Copy-Item $tempFilteredDomains $localDomainsFile
@@ -80,5 +91,10 @@ Copy-Item $tempFilteredDomains $localDomainsFile
 # Remove the temporary directory and its contents
 Remove-Item -Recurse -Force $tempDir
 
-# Execute the reload command
+# Execute the reload command and check for success
 ssh -i $sshKeyPath "$routerUser@$routerHost" "$reloadCommand"
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Error: Failed to execute reload command"
+    Remove-Item -Recurse -Force $tempDir
+    exit 1
+}
