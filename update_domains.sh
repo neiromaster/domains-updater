@@ -113,11 +113,11 @@ addedDomains=$(comm -13 <(echo "$currentDomains" | sort) <(echo "$newDomains" | 
 removedDomains=$(comm -23 <(echo "$currentDomains" | sort) <(echo "$newDomains" | sort))
 
 if [ -n "$addedDomains" ]; then
-  log_message "Added domains: $addedDomains"
+  log_message "Added domains: $(echo "$addedDomains" | tr '\n' ', ' | sed 's/, $//')"
 fi
 
 if [ -n "$removedDomains" ]; then
-  log_message "Removed domains: $removedDomains"
+  log_message "Removed domains: $(echo "$removedDomains" | tr '\n' ', ' | sed 's/, $//')"
 fi
 
 # Send the updated domain list back to the router via SSH using echo and check for success
