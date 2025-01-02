@@ -1,12 +1,17 @@
 #!/bin/bash
 
+# Функция для форматирования даты и времени
+format_date() {
+  date +"%Y/%m/%d-%H:%M:%S"
+}
+
 # Log file
 LOG_FILE="update_domains.log"
-echo "Starting script execution at $(date)" > "$LOG_FILE"
+echo "$(format_date) - Starting script execution" > "$LOG_FILE"
 
 # Function to log errors and exit
 log_error_and_exit() {
-  echo -e "$1" | tee -a "$LOG_FILE"
+  echo "$(format_date) - $1" | tee -a "$LOG_FILE"
   rm -rf "$tempDir"
   exit 1
 }
@@ -124,4 +129,4 @@ if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "$reloadCommand"; then
   log_error_and_exit "Error: Failed to execute reload command"
 fi
 
-echo "Script executed successfully at $(date)" >> "$LOG_FILE"
+echo "$(format_date) - Script executed successfully" >> "$LOG_FILE"

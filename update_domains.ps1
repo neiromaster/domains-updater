@@ -1,13 +1,18 @@
+# Функция для форматирования даты и времени
+function Format-Date {
+    Get-Date -Format "yyyy/MM/dd-HH:mm:ss"
+}
+
 # Log file
 $logFile = "update_domains.log"
-"Starting script execution at $(Get-Date)" | Out-File -FilePath $logFile
+"$(Format-Date) - Starting script execution" | Out-File -FilePath $logFile
 
 # Function to log errors and exit
 function LogErrorAndExit {
     param (
         [string]$message
     )
-    $message | Tee-Object -Variable errorMessage | Out-File -FilePath $logFile -Append
+    "$(Format-Date) - $message" | Tee-Object -Variable errorMessage | Out-File -FilePath $logFile -Append
     Remove-Item -Recurse -Force $tempDir
     Write-Error $errorMessage
     exit 1
@@ -128,4 +133,4 @@ if ($LASTEXITCODE -ne 0) {
     LogErrorAndExit "Error: Failed to execute reload command"
 }
 
-"Script executed successfully at $(Get-Date)" | Out-File -FilePath $logFile -Append
+"$(Format-Date) - Script executed successfully" | Out-File -FilePath $logFile -Append
