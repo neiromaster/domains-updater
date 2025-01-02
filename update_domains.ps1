@@ -36,10 +36,18 @@ if (Test-Path $envFilePath) {
 
 # Check environment variables
 $requiredEnvVars = @("ROUTER_HOST", "ROUTER_USER", "SSH_KEY_PATH", "DOMAINS_FILE_PATH", "LOCAL_DOMAINS_FILE", "RELOAD_COMMAND")
-$hasErrors = $false
+$errors = @()
+
 foreach ($envVar in $requiredEnvVars) {
     if (-Not [System.Environment]::GetEnvironmentVariable($envVar, [System.EnvironmentVariableTarget]::Process)) {
-        LogErrorAndExit "Error: Environment variable $envVar is not set"
+        $errors += "Error: Environment variable $envVar is not set"
+    }
+}
+
+# Output all errors and exit if any error is collected
+if ($errors.Count -gt 0) {
+    foreach ($error in $errors) {
+        LogErrorAndExit "$error"
     }
 }
 
