@@ -5,18 +5,28 @@ function Format-Date {
 
 # Log file
 $logFile = "update_domains.log"
-"$(Format-Date) - Starting script execution" | Out-File -FilePath $logFile
+
+# Function to log messages with timestamp
+function Log-Message {
+    param (
+        [string]$message
+    )
+    "$(Format-Date) - $message" | Out-File -FilePath $logFile -Append
+}
 
 # Function to log errors and exit
 function LogErrorAndExit {
     param (
         [string]$message
     )
-    "$(Format-Date) - $message" | Tee-Object -Variable errorMessage | Out-File -FilePath $logFile -Append
+    Log-Message "$message"
     Remove-Item -Recurse -Force $tempDir
-    Write-Error $errorMessage
+    Write-Error $message
     exit 1
 }
+
+# Log script start
+Log-Message "Script started"
 
 # Check for necessary tools
 if (-Not (Get-Command ssh -ErrorAction SilentlyContinue)) {
@@ -108,11 +118,11 @@ $addedDomains = Compare-Object -ReferenceObject $currentDomains -DifferenceObjec
 $removedDomains = Compare-Object -ReferenceObject $currentDomains -DifferenceObject $newDomains | Where-Object { $_.SideIndicator -eq "<=" } | Select-Object -ExpandProperty InputObject
 
 if ($addedDomains.Count -gt 0) {
-    "$(Format-Date) - Added domains: $($addedDomains -join ', ')" | Out-File -FilePath $logFile -Append
+    Log-Message "Added domains: $($addedDomains -join ', ')"
 }
 
 if ($removedDomains.Count -gt 0) {
-    "$(Format-Date) - Removed domains: $($removedDomains -join ', ')" | Out-File -FilePath $logFile -Append
+    Log-Message "Removed domains: $($removedDomains -join ', ')"
 }
 
 # Send the updated domain list back to the router via SSH using echo and check for success

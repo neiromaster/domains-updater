@@ -7,14 +7,21 @@ format_date() {
 
 # Log file
 LOG_FILE="update_domains.log"
-echo "$(format_date) - Starting script execution" > "$LOG_FILE"
+
+# Function to log messages with timestamp
+log_message() {
+  echo "$(format_date) - $1" >> "$LOG_FILE"
+}
 
 # Function to log errors and exit
 log_error_and_exit() {
-  echo "$(format_date) - $1" | tee -a "$LOG_FILE"
+  log_message "$1"
   rm -rf "$tempDir"
   exit 1
 }
+
+# Log script start
+log_message "Script started"
 
 # Check for necessary tools
 if ! command -v ssh &> /dev/null || ! command -v grep &> /dev/null || ! command -v sort &> /dev/null; then
@@ -106,11 +113,11 @@ addedDomains=$(comm -13 <(echo "$currentDomains" | sort) <(echo "$newDomains" | 
 removedDomains=$(comm -23 <(echo "$currentDomains" | sort) <(echo "$newDomains" | sort))
 
 if [ -n "$addedDomains" ]; then
-  echo "$(format_date) - Added domains: $addedDomains" >> "$LOG_FILE"
+  log_message "Added domains: $addedDomains"
 fi
 
 if [ -n "$removedDomains" ]; then
-  echo "$(format_date) - Removed domains: $removedDomains" >> "$LOG_FILE"
+  log_message "Removed domains: $removedDomains"
 fi
 
 # Send the updated domain list back to the router via SSH using echo and check for success
