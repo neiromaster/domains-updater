@@ -18,22 +18,19 @@ if (-Not (Get-Command ssh -ErrorAction SilentlyContinue)) {
     LogErrorAndExit "Error: Required tool 'ssh' is not installed"
 }
 
-# Check for the existence of the .env file
-if (-Not (Test-Path .env)) {
-    LogErrorAndExit "Error: .env file not found"
-}
-
-# Load environment variables from the .env file
+# Load environment variables from the .env file if it exists
 $envFilePath = ".env"
-Get-Content $envFilePath | ForEach-Object {
-    # Skip empty lines and comments (#)
-    if (-not ($_ -match "^\s*#") -and ($_ -match "^\s*(\w+)\s*=\s*(.*)\s*$")) {
-        $name = $matches[1]
-        $value = $matches[2]
+if (Test-Path $envFilePath) {
+    Get-Content $envFilePath | ForEach-Object {
+        # Skip empty lines and comments (#)
+        if (-not ($_ -match "^\s*#") -and ($_ -match "^\s*(\w+)\s*=\s*(.*)\s*$")) {
+            $name = $matches[1]
+            $value = $matches[2]
 
-        $value = $value.Trim('"')
-        # Set the environment variable
-        [System.Environment]::SetEnvironmentVariable($name, $value, [System.EnvironmentVariableTarget]::Process)
+            $value = $value.Trim('"')
+            # Set the environment variable
+            [System.Environment]::SetEnvironmentVariable($name, $value, [System.EnvironmentVariableTarget]::Process)
+        }
     }
 }
 

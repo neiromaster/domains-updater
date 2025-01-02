@@ -16,15 +16,12 @@ if ! command -v ssh &> /dev/null || ! command -v grep &> /dev/null || ! command 
   log_error_and_exit "Error: Required tools (ssh, grep, sort) are not installed"
 fi
 
-# Check for the existence of the .env file
-if [ ! -f .env ]; then
-  log_error_and_exit "Error: .env file not found"
+# Load environment variables from the .env file if it exists
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
 fi
-
-# Load environment variables from the .env file
-set -a
-source .env
-set +a
 
 # Verify if all environment variables are set and collect errors
 errors=""
