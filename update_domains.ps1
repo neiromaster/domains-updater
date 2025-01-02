@@ -1,7 +1,26 @@
+# Log file
+$logFile = "update_domains.log"
+"Starting script execution at $(Get-Date)" | Out-File -FilePath $logFile
+
+# Function to log errors and exit
+function LogErrorAndExit {
+    param (
+        [string]$message
+    )
+    $message | Tee-Object -Variable errorMessage | Out-File -FilePath $logFile -Append
+    Remove-Item -Recurse -Force $tempDir
+    Write-Error $errorMessage
+    exit 1
+}
+
+# Check for necessary tools
+if (-Not (Get-Command ssh -ErrorAction SilentlyContinue)) {
+    LogErrorAndExit "Error: Required tool 'ssh' is not installed"
+}
+
 # Check for the existence of the .env file
 if (-Not (Test-Path .env)) {
-    Write-Error "Error: .env file not found"
-    exit 1
+    LogErrorAndExit "Error: .env file not found"
 }
 
 # Load environment variables from the .env file
@@ -23,12 +42,8 @@ $requiredEnvVars = @("ROUTER_HOST", "ROUTER_USER", "SSH_KEY_PATH", "DOMAINS_FILE
 $hasErrors = $false
 foreach ($envVar in $requiredEnvVars) {
     if (-Not [System.Environment]::GetEnvironmentVariable($envVar, [System.EnvironmentVariableTarget]::Process)) {
-        Write-Error "Error: Environment variable $envVar is not set"
-        $hasErrors = $true
+        LogErrorAndExit "Error: Environment variable $envVar is not set"
     }
-}
-if ($hasErrors) {
-    exit 1
 }
 
 # Assign variables
@@ -57,9 +72,7 @@ $tempFilteredDomains = "$tempDir/temp_filtered_domains.txt"
 # Read the domain list from the router and check for success
 $readDomains = ssh -i $sshKeyPath "$routerUser@$routerHost" "cat $domainsFilePath"
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Error: Failed to read domains from the router"
-    Remove-Item -Recurse -Force $tempDir
-    exit 1
+    LogErrorAndExit "Error: Failed to read domains from the router"
 }
 $readDomains | Out-File $tempRemoteDomains -Encoding utf8
 
@@ -80,9 +93,7 @@ $updatedDomains = Get-Content $tempFilteredDomains -Raw
 # Send the updated domain list back to the router via SSH using echo and check for success
 ssh -i $sshKeyPath "$routerUser@$routerHost" "echo `"$updatedDomains`" > $domainsFilePath"
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Error: Failed to update domains on the router"
-    Remove-Item -Recurse -Force $tempDir
-    exit 1
+    LogErrorAndExit "Error: Failed to update domains on the router"
 }
 
 # Save the updated domain list to the local file
@@ -94,7 +105,7 @@ Remove-Item -Recurse -Force $tempDir
 # Execute the reload command and check for success
 ssh -i $sshKeyPath "$routerUser@$routerHost" "$reloadCommand"
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Error: Failed to execute reload command"
-    Remove-Item -Recurse -Force $tempDir
-    exit 1
+    LogErrorAndExit "Error: Failed to execute reload command"
 }
+
+"Script executed successfully at $(Get-Date)" | Out-File -FilePath $logFile -Append
