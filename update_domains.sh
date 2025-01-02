@@ -93,6 +93,21 @@ grep -vxf <(grep '^#' "$tempNormalizedLocalDomains" | sed 's/^#//') "$tempAllDom
 # Read the updated domain list into a variable
 updatedDomains=$(cat "$tempFilteredDomains")
 
+# Log added and removed domains
+currentDomains=$(cat "$tempNormalizedRemoteDomains")
+newDomains=$(cat "$tempFilteredDomains")
+
+addedDomains=$(comm -13 <(echo "$currentDomains" | sort) <(echo "$newDomains" | sort))
+removedDomains=$(comm -23 <(echo "$currentDomains" | sort) <(echo "$newDomains" | sort))
+
+if [ -n "$addedDomains" ]; then
+  echo "Added domains: $addedDomains" >> "$LOG_FILE"
+fi
+
+if [ -n "$removedDomains" ]; then
+  echo "Removed domains: $removedDomains" >> "$LOG_FILE"
+fi
+
 # Send the updated domain list back to the router via SSH using echo and check for success
 if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "echo \"$updatedDomains\" > $domainsFilePath"; then
   log_error_and_exit "Error: Failed to update domains on the router"
