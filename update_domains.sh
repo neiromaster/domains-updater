@@ -11,6 +11,39 @@ set -a
 source .env
 set +a
 
+# Verify if all environment variables are set and collect errors
+errors=""
+
+if [ -z "$ROUTER_HOST" ]; then
+  errors+="Error: ROUTER_HOST variable is not set\n"
+fi
+
+if [ -z "$ROUTER_USER" ]; then
+  errors+="Error: ROUTER_USER variable is not set\n"
+fi
+
+if [ -z "$SSH_KEY_PATH" ]; then
+  errors+="Error: SSH_KEY_PATH variable is not set\n"
+fi
+
+if [ -z "$DOMAINS_FILE_PATH" ]; then
+  errors+="Error: DOMAINS_FILE_PATH variable is not set\n"
+fi
+
+if [ -z "$LOCAL_DOMAINS_FILE" ]; then
+  errors+="Error: LOCAL_DOMAINS_FILE variable is not set\n"
+fi
+
+if [ -z "$RELOAD_COMMAND" ]; then
+  errors+="Error: RELOAD_COMMAND variable is not set\n"
+fi
+
+# Output all errors and exit if any error is collected
+if [ -n "$errors" ]; then
+  echo -e "$errors"
+  exit 1
+fi
+
 # Assign variables
 routerHost=$ROUTER_HOST
 routerUser=$ROUTER_USER
@@ -18,12 +51,6 @@ sshKeyPath=$SSH_KEY_PATH
 domainsFilePath=$DOMAINS_FILE_PATH
 localDomainsFile=$LOCAL_DOMAINS_FILE
 reloadCommand=$RELOAD_COMMAND
-
-# Verify if all environment variables are set
-if [ -z "$routerHost" ] || [ -z "$routerUser" ] || [ -z "$sshKeyPath" ] || [ -z "$domainsFilePath" ] || [ -z "$localDomainsFile" ] || [ -z "$reloadCommand" ]; then
-  echo "Error: One or more environment variables are not set"
-  exit 1
-fi
 
 # Temporary directory
 tempDir="tmp"

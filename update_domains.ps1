@@ -18,6 +18,19 @@ Get-Content $envFilePath | ForEach-Object {
     }
 }
 
+# Check environment variables
+$requiredEnvVars = @("ROUTER_HOST", "ROUTER_USER", "SSH_KEY_PATH", "DOMAINS_FILE_PATH", "LOCAL_DOMAINS_FILE", "RELOAD_COMMAND")
+$hasErrors = $false
+foreach ($envVar in $requiredEnvVars) {
+    if (-Not [System.Environment]::GetEnvironmentVariable($envVar, [System.EnvironmentVariableTarget]::Process)) {
+        Write-Error "Error: Environment variable $envVar is not set"
+        $hasErrors = $true
+    }
+}
+if ($hasErrors) {
+    exit 1
+}
+
 # Assign variables
 $routerHost = $env:ROUTER_HOST
 $routerUser = $env:ROUTER_USER
@@ -25,12 +38,6 @@ $sshKeyPath = $env:SSH_KEY_PATH
 $domainsFilePath = $env:DOMAINS_FILE_PATH
 $localDomainsFile = $env:LOCAL_DOMAINS_FILE
 $reloadCommand = $env:RELOAD_COMMAND
-
-# Verify if all environment variables are set
-if (-Not $routerHost -or -Not $routerUser -or -Not $sshKeyPath -or -Not $domainsFilePath -or -Not $localDomainsFile -or -Not $reloadCommand) {
-    Write-Error "Error: One or more environment variables are not set"
-    exit 1
-}
 
 # Temporary directory
 $tempDir = "tmp"
