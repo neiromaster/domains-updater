@@ -108,11 +108,11 @@ $addedDomains = Compare-Object -ReferenceObject $currentDomains -DifferenceObjec
 $removedDomains = Compare-Object -ReferenceObject $currentDomains -DifferenceObject $newDomains | Where-Object { $_.SideIndicator -eq "<=" } | Select-Object -ExpandProperty InputObject
 
 if ($addedDomains.Count -gt 0) {
-    "Added domains: $($addedDomains -join ', ')" | Out-File -FilePath $logFile -Append
+    "$(Format-Date) - Added domains: $($addedDomains -join ', ')" | Out-File -FilePath $logFile -Append
 }
 
 if ($removedDomains.Count -gt 0) {
-    "Removed domains: $($removedDomains -join ', ')" | Out-File -FilePath $logFile -Append
+    "$(Format-Date) - Removed domains: $($removedDomains -join ', ')" | Out-File -FilePath $logFile -Append
 }
 
 # Send the updated domain list back to the router via SSH using echo and check for success
