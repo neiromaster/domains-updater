@@ -2,6 +2,8 @@
 
 This repository contains scripts to update the domain list on a router. The scripts are written in Bash and PowerShell, providing SSH connection to the router, merging domain lists from a local file, removing duplicates and lines starting with the `#` symbol, and reloading the `homeproxy` service.
 
+[Перевод на русский](docs/README_ru.md)
+
 ## Description
 
 The scripts perform the following actions:
