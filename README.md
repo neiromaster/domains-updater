@@ -15,9 +15,9 @@ The scripts perform the following actions:
 7. Execute the command to reload the `homeproxy` service on the router.
 
 
-Additionally, you can use the following command on the router to merge two domain lists without duplicates, replacing the first list with the result:
+Additionally, you can use the following command on the router to merge two domain lists, remove domains from a third file, without duplicates, replacing the first list with the result:
 ```bash
-sort -u file1.txt file2.txt > tmp.txt && mv tmp.txt file1.txt
+sort -u file1.txt file2.txt | grep -vxf file3.txt > tmp.txt && mv tmp.txt file1.txt
 ```
 
 ## Requirements
