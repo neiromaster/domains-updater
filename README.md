@@ -39,6 +39,8 @@ SSH_KEY_PATH=~/.ssh/id_rsa
 DOMAINS_FILE_PATH=/path/to/domain_file_on_router
 LOCAL_DOMAINS_FILE=path/to/local_domains_file.txt
 RELOAD_COMMAND="/etc/init.d/homeproxy reload"
+REMOVE_DOMAINS_FILE_PATH=/path/to/remove_domain_file_on_router # Path to the file with domains to remove on the router
+LOCAL_REMOVE_DOMAINS_FILE=path/to/local_remove_domains_file.txt # Path to the local file with domains to remove
 ```
 
 ### 2. Install Dependencies
