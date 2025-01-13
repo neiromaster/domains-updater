@@ -58,13 +58,6 @@ if [ -z "$LOCAL_DOMAINS_FILE" ]; then
   errors+="Error: LOCAL_DOMAINS_FILE variable is not set\n"
 fi
 
-if [ -z "$REMOVE_DOMAINS_FILE_PATH" ]; then
-  errors+="Error: REMOVE_DOMAINS_FILE_PATH variable is not set\n"
-fi
-
-if [ -z "$LOCAL_REMOVE_DOMAINS_FILE" ]; then
-  errors+="Error: LOCAL_REMOVE_DOMAINS_FILE variable is not set\n"
-fi
 
 if [ -z "$RELOAD_COMMAND" ]; then
   errors+="Error: RELOAD_COMMAND variable is not set\n"

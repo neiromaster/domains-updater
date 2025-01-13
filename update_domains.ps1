@@ -50,7 +50,7 @@ if (Test-Path $envFilePath) {
 }
 
 # Check environment variables
-$requiredEnvVars = @("ROUTER_HOST", "ROUTER_USER", "SSH_KEY_PATH", "DOMAINS_FILE_PATH", "LOCAL_DOMAINS_FILE", "RELOAD_COMMAND", "REMOVE_DOMAINS_FILE_PATH", "LOCAL_REMOVE_DOMAINS_FILE")
+$requiredEnvVars = @("ROUTER_HOST", "ROUTER_USER", "SSH_KEY_PATH", "DOMAINS_FILE_PATH", "LOCAL_DOMAINS_FILE", "RELOAD_COMMAND")
 $errors = @()
 
 foreach ($envVar in $requiredEnvVars) {
