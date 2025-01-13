@@ -3,6 +3,7 @@
 This repository contains scripts to update the domain list on a router. The scripts are written in Bash and PowerShell, providing SSH connection to the router, merging domain lists from a local file, removing duplicates and lines starting with the `#` symbol, and reloading the `homeproxy` service.
 
 [Перевод на русский](docs/README_ru.md)
+
 ## Description
 
 The scripts perform the following actions:
@@ -14,7 +15,6 @@ The scripts perform the following actions:
 6. Copy the updated domain list back to the router.
 7. Execute the command to reload the `homeproxy` service on the router.
 
-
 Additionally, you can use the following command on the router to:
 1. Merge `file1.txt` and `file2.txt`.
 2. Remove any domains listed in `file3.txt`.
@@ -23,6 +23,8 @@ Additionally, you can use the following command on the router to:
 ```bash
 sort -u file1.txt file2.txt | grep -vxf file3.txt > tmp.txt && mv tmp.txt file1.txt
 ```
+
+This command might be useful if the tool you use on your router doesn't support multiple lists. In that case, you can merge the lists directly on the router after the main list has been updated.
 
 ## Requirements
 
