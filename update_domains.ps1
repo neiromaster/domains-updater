@@ -50,7 +50,7 @@ if (Test-Path $envFilePath) {
 }
 
 # Check environment variables
-$requiredEnvVars = @("ROUTER_HOST", "ROUTER_USER", "SSH_KEY_PATH", "DOMAINS_FILE_PATH", "LOCAL_DOMAINS_FILE", "RELOAD_COMMAND")
+$requiredEnvVars = @("ROUTER_HOST", "ROUTER_USER", "SSH_KEY_PATH", "DOMAINS_FILE_PATH", "LOCAL_DOMAINS_FILE", "RELOAD_COMMAND", "REMOVE_DOMAINS_FILE_PATH", "LOCAL_REMOVE_DOMAINS_FILE")
 $errors = @()
 
 foreach ($envVar in $requiredEnvVars) {
@@ -71,6 +71,8 @@ $routerHost = $env:ROUTER_HOST
 $routerUser = $env:ROUTER_USER
 $sshKeyPath = $env:SSH_KEY_PATH
 $domainsFilePath = $env:DOMAINS_FILE_PATH
+$removeDomainsFilePath = $env:REMOVE_DOMAINS_FILE_PATH
+$localRemoveDomainsFile = $env:LOCAL_REMOVE_DOMAINS_FILE
 $localDomainsFile = $env:LOCAL_DOMAINS_FILE
 $reloadCommand = $env:RELOAD_COMMAND
 
@@ -123,6 +125,17 @@ if ($addedDomains.Count -gt 0) {
 
 if ($removedDomains.Count -gt 0) {
     Log-Message "Removed domains: $($removedDomains -join ', ')"
+}
+
+# Check if the remove domains file exists and copy it to the router
+if ($removeDomainsFilePath -and $localRemoveDomainsFile -and (Test-Path $localRemoveDomainsFile)) {
+    
+    $scpResult = ssh -i $sshKeyPath "$routerUser@$routerHost" "cat > $removeDomainsFilePath" < $localRemoveDomainsFile
+    if ($LASTEXITCODE -ne 0) {
+        LogErrorAndExit "Error: Failed to copy remove domains file to the router"
+    } else {
+        Log-Message "Remove domains file copied to the router successfully"
+    }
 }
 
 # Send the updated domain list back to the router via SSH using echo and check for success

@@ -58,6 +58,14 @@ if [ -z "$LOCAL_DOMAINS_FILE" ]; then
   errors+="Error: LOCAL_DOMAINS_FILE variable is not set\n"
 fi
 
+if [ -z "$REMOVE_DOMAINS_FILE_PATH" ]; then
+  errors+="Error: REMOVE_DOMAINS_FILE_PATH variable is not set\n"
+fi
+
+if [ -z "$LOCAL_REMOVE_DOMAINS_FILE" ]; then
+  errors+="Error: LOCAL_REMOVE_DOMAINS_FILE variable is not set\n"
+fi
+
 if [ -z "$RELOAD_COMMAND" ]; then
   errors+="Error: RELOAD_COMMAND variable is not set\n"
 fi
@@ -72,6 +80,8 @@ routerHost=$ROUTER_HOST
 routerUser=$ROUTER_USER
 sshKeyPath=$SSH_KEY_PATH
 domainsFilePath=$DOMAINS_FILE_PATH
+removeDomainsFilePath=$REMOVE_DOMAINS_FILE_PATH
+localRemoveDomainsFile=$LOCAL_REMOVE_DOMAINS_FILE
 localDomainsFile=$LOCAL_DOMAINS_FILE
 reloadCommand=$RELOAD_COMMAND
 
@@ -118,6 +128,15 @@ fi
 
 if [ -n "$removedDomains" ]; then
   log_message "Removed domains: $(echo "$removedDomains" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+fi
+
+# Check if the remove domains file exists and copy it to the router
+if [ -n "$removeDomainsFilePath" ] && [ -n "$localRemoveDomainsFile" ] && [ -f "$localRemoveDomainsFile" ]; then
+  if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat > $removeDomainsFilePath" < "$localRemoveDomainsFile"; then
+    log_error_and_exit "Error: Failed to copy remove domains file to the router"
+  else
+    log_message "Remove domains file copied to the router successfully"
+  fi
 fi
 
 # Send the updated domain list back to the router via SSH using echo and check for success
