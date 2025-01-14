@@ -20,7 +20,6 @@ function LogErrorAndExit {
         [string]$message
     )
     Log-Message "$message"
-    Remove-Item -Recurse -Force $tempDir
     Write-Error $message
     exit 1
 }
@@ -75,14 +74,6 @@ $localDomainsFile = $env:LOCAL_DOMAINS_FILE
 $removeDomainsFilePath = $env:REMOVE_DOMAINS_FILE_PATH
 $localRemoveDomainsFile = $env:LOCAL_REMOVE_DOMAINS_FILE
 $reloadCommand = $env:RELOAD_COMMAND
-
-# Temporary directory
-$tempDir = "tmp"
-
-# Ensure the tmp directory exists
-if (-Not (Test-Path $tempDir)) {
-    New-Item -ItemType Directory -Path $tempDir
-}
 
 function process_domain_files {
     param (
@@ -148,9 +139,6 @@ if ($LASTEXITCODE -ne 0) {
 
 # Save the updated domain list to the local file
 $filteredDomains | Out-File $localDomainsFile
-
-# Remove the temporary directory and its contents
-Remove-Item -Recurse -Force "tmp"
 
 # Execute the reload command and check for success
 ssh -i $sshKeyPath "$routerUser@$routerHost" "$reloadCommand"

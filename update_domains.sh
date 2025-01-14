@@ -16,7 +16,6 @@ log_message() {
 # Function to log errors and exit
 log_error_and_exit() {
   log_message "$1"
-  rm -rf "$tempDir"
   exit 1
 }
 
@@ -138,9 +137,6 @@ fi
 
 # Save the updated domain list to the local file
 echo "$filteredDomains" >"$localDomainsFile"
-
-# Remove the temporary directory and its contents
-rm -rf "tmp"
 
 # Execute the reload command and check for success
 if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "$reloadCommand"; then
