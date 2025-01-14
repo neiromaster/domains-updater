@@ -77,13 +77,13 @@ $reloadCommand = $env:RELOAD_COMMAND
 
 function process_domain_files {
     param (
-        [string]$remoteDomainsFile,
-        [string]$localDomainsFile
+        [string]$remoteDomains,
+        [string]$localDomains
     )
 
     # Normalize line endings to \n
-    $normalizedRemoteDomains = Get-Content $remoteDomainsFile | ForEach-Object { $_ -replace "`r", "" }
-    $normalizedLocalDomains = Get-Content $localDomainsFile | ForEach-Object { $_ -replace "`r", "" }
+    $normalizedRemoteDomains = $remoteDomains -replace "`r", "`n" -split "`n" | Where-Object { $_ }
+    $normalizedLocalDomains = $localDomains -replace "`r", "`n" -split "`n" | Where-Object { $_ }
 
     # Merge domain lists and remove duplicates and empty lines
     $allDomains = ($normalizedRemoteDomains + $normalizedLocalDomains) | Where-Object { $_ -ne "" -and $_ -notmatch '^#' } | Sort-Object | Get-Unique
@@ -109,17 +109,18 @@ function process_domain_files {
 }
 
 # Read the domain list from the router and check for success
-$readDomains = ssh -i $sshKeyPath "$routerUser@$routerHost" "cat $domainsFilePath"
+$remoteDomains = ssh -i $sshKeyPath "$routerUser@$routerHost" "cat $domainsFilePath"
 if ($LASTEXITCODE -ne 0) {
     LogErrorAndExit "Error: Failed to read domains from the router"
 }
 
 # Process main domain files
-$filteredDomains = process_domain_files -remoteDomainsFile ($readDomains) -localDomainsFile $localDomainsFile
+$filteredDomains = process_domain_files -remoteDomains $remoteDomains -localDomains (Get-Content $localDomainsFile -Raw)
 
 # Process remove domain files if they exist
 if ($removeDomainsFilePath -and $localRemoveDomainsFile -and (Test-Path $localRemoveDomainsFile)) {
-    $filteredRemoveDomains = process_domain_files -remoteDomainsFile (Get-Content $removeDomainsFilePath) -localDomainsFile $localRemoveDomainsFile
+    $removeDomains = Get-Content $removeDomainsFilePath
+    $filteredRemoveDomains = process_domain_files -remoteDomains $removeDomains -localDomains (Get-Content $localRemoveDomainsFile -Raw)
     $scpResult = ssh -i $sshKeyPath "$routerUser@$routerHost" "cat > $removeDomainsFilePath" < $localRemoveDomainsFile
     if ($LASTEXITCODE -ne 0) {
         LogErrorAndExit "Error: Failed to copy remove domains file to the router"

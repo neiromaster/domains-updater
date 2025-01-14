@@ -77,12 +77,12 @@ localRemoveDomainsFile=$LOCAL_REMOVE_DOMAINS_FILE
 reloadCommand=$RELOAD_COMMAND
 
 process_domain_files() {
-    local remoteDomainsFile="$1"
-    local localDomainsFile="$2"
+    local remoteDomains="$1"
+    local localDomains="$2"
 
     # Normalize line endings to \n
-    local normalizedRemoteDomains=$(<"$remoteDomainsFile" tr -d '\r')
-    local normalizedLocalDomains=$(<"$localDomainsFile" tr -d '\r')
+    local normalizedRemoteDomains=$(echo "$remoteDomains" | tr -d '\r')
+    local normalizedLocalDomains=$(echo "$localDomains" | tr -d '\r')
 
     # Merge domain lists and remove empty lines and lines starting with #
     local allDomains=$(echo "$normalizedRemoteDomains" "$normalizedLocalDomains" | grep -v '^$' | grep -v '^#' | sort -u)
@@ -114,12 +114,12 @@ if [ $? -ne 0 ]; then
 fi
 
 # Process main domain files
-filteredDomains=$(process_domain_files "$remoteDomains" "$localDomainsFile")
+filteredDomains=$(process_domain_files "$remoteDomains" "$(cat "$localDomainsFile")")
 
 # Process remove domain files if they exist
 if [ -n "$removeDomainsFilePath" ] && [ -n "$localRemoveDomainsFile" ] && [ -f "$localRemoveDomainsFile" ]; then
-    read -r -d '' removeDomains < <(cat "$removeDomainsFilePath")
-    filteredRemoveDomains=$(process_domain_files "$removeDomains" "$localRemoveDomainsFile")
+    removeDomains=$(cat "$removeDomainsFilePath")
+    filteredRemoveDomains=$(process_domain_files "$removeDomains" "$(cat "$localRemoveDomainsFile")")
     if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat > $removeDomainsFilePath" < "$localRemoveDomainsFile"; then
         log_error_and_exit "Error: Failed to copy remove domains file to the router"
     else
