@@ -10,7 +10,7 @@ LOG_FILE="update_domains.log"
 
 # Function to log messages with timestamp
 log_message() {
-  echo "$(format_date) - $1" >> "$LOG_FILE"
+  echo "$(format_date) - $1" >>"$LOG_FILE"
 }
 
 # Function to log errors and exit
@@ -24,7 +24,7 @@ log_error_and_exit() {
 log_message "Script started"
 
 # Check for necessary tools
-if ! command -v ssh &> /dev/null || ! command -v grep &> /dev/null || ! command -v sort &> /dev/null; then
+if ! command -v ssh &>/dev/null || ! command -v grep &>/dev/null || ! command -v sort &>/dev/null; then
   log_error_and_exit "Error: Required tools (ssh, grep, sort) are not installed"
 fi
 
@@ -58,7 +58,6 @@ if [ -z "$LOCAL_DOMAINS_FILE" ]; then
   errors+="Error: LOCAL_DOMAINS_FILE variable is not set\n"
 fi
 
-
 if [ -z "$RELOAD_COMMAND" ]; then
   errors+="Error: RELOAD_COMMAND variable is not set\n"
 fi
@@ -78,6 +77,48 @@ removeDomainsFilePath=$REMOVE_DOMAINS_FILE_PATH
 localRemoveDomainsFile=$LOCAL_REMOVE_DOMAINS_FILE
 reloadCommand=$RELOAD_COMMAND
 
+process_domain_files() {
+  local remoteDomainsFile="$1"
+  local localDomainsFile="$2"
+
+  local tempDir="tmp"
+  local tempNormalizedRemoteDomains="$tempDir/temp_normalized_remote_domains.txt"
+  local tempNormalizedLocalDomains="$tempDir/temp_normalized_local_domains.txt"
+  local tempAllDomains="$tempDir/temp_all_domains.txt"
+  local tempFilteredDomains="$tempDir/temp_filtered_domains.txt"
+
+  # Normalize line endings to \n
+  <"$remoteDomainsFile" tr -d '\r' >"$tempNormalizedRemoteDomains"
+  <"$localDomainsFile" tr -d '\r' >"$tempNormalizedLocalDomains"
+
+  # Merge domain lists and remove empty lines and lines starting with #
+  cat "$tempNormalizedRemoteDomains" "$tempNormalizedLocalDomains" | grep -v '^$' | grep -v '^#' | sort -u >"$tempAllDomains"
+
+  # Remove domains listed in the local file with #
+  grep -vxf <(grep '^#' "$tempNormalizedLocalDomains" | sed 's/^#//') "$tempAllDomains" >"$tempFilteredDomains"
+
+  # Get the filtered domains
+  local filteredDomains=$(cat "$tempFilteredDomains")
+
+  # Log added and removed domains
+  local currentDomains=$(cat "$tempNormalizedRemoteDomains")
+  local newDomains=$(echo "$filteredDomains")
+
+  local addedDomains=$(comm -13 <(echo "$currentDomains" | sort) <(echo "$newDomains" | sort))
+  local removedDomains=$(comm -23 <(echo "$currentDomains" | sort) <(echo "$newDomains" | sort))
+
+  if [ -n "$addedDomains" ]; then
+    log_message "Added domains: $(echo "$addedDomains" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+  fi
+
+  if [ -n "$removedDomains" ]; then
+    log_message "Removed domains: $(echo "$removedDomains" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+  fi
+
+  # Return the filtered domains as a string
+  echo "$filteredDomains"
+}
+
 # Temporary directory
 tempDir="tmp"
 
@@ -88,41 +129,25 @@ mkdir -p "$tempDir"
 tempRemoteDomains="$tempDir/temp_remote_domains.txt"
 
 # Read the domain list from the router via SSH and check for success
-if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath" > "$tempRemoteDomains"; then
+if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath" >"$tempRemoteDomains"; then
   log_error_and_exit "Error: Failed to read domains from the router"
 fi
 
-tempNormalizedRemoteDomains="$tempDir/temp_normalized_remote_domains.txt"
-tempNormalizedLocalDomains="$tempDir/temp_normalized_local_domains.txt"
-tempAllDomains="$tempDir/temp_all_domains.txt"
-tempFilteredDomains="$tempDir/temp_filtered_domains.txt"
+# Process main domain files
+filteredDomains=$(process_domain_files "$tempRemoteDomains" "$localDomainsFile")
 
-# Merge domain lists and remove empty lines and lines starting with #
-< "$tempRemoteDomains" tr -d '\r' > "$tempNormalizedRemoteDomains"
-< "$localDomainsFile" tr -d '\r' > "$tempNormalizedLocalDomains"
-
-cat "$tempNormalizedRemoteDomains" "$tempNormalizedLocalDomains" | grep -v '^$' | grep -v '^#' | sort -u > "$tempAllDomains"
-
-# Remove domains listed in the local file with #
-grep -vxf <(grep '^#' "$tempNormalizedLocalDomains" | sed 's/^#//') "$tempAllDomains" > "$tempFilteredDomains"
+# Process remove domain files if they exist
+if [ -n "$removeDomainsFilePath" ] && [ -n "$localRemoveDomainsFile" ] && [ -f "$localRemoveDomainsFile" ]; then
+  filteredRemoveDomains=$(process_domain_files "$removeDomainsFilePath" "$localRemoveDomainsFile")
+  if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat > $removeDomainsFilePath" <"$localRemoveDomainsFile"; then
+    log_error_and_exit "Error: Failed to copy remove domains file to the router"
+  else
+    log_message "Remove domains file copied to the router successfully"
+  fi
+fi
 
 # Read the updated domain list into a variable
-updatedDomains=$(cat "$tempFilteredDomains")
-
-# Log added and removed domains
-currentDomains=$(cat "$tempNormalizedRemoteDomains")
-newDomains=$(cat "$tempFilteredDomains")
-
-addedDomains=$(comm -13 <(echo "$currentDomains" | sort) <(echo "$newDomains" | sort))
-removedDomains=$(comm -23 <(echo "$currentDomains" | sort) <(echo "$newDomains" | sort))
-
-if [ -n "$addedDomains" ]; then
-  log_message "Added domains: $(echo "$addedDomains" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
-fi
-
-if [ -n "$removedDomains" ]; then
-  log_message "Removed domains: $(echo "$removedDomains" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
-fi
+updatedDomains="$filteredDomains"
 
 # Send the updated domain list back to the router via SSH using echo and check for success
 if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "echo \"$updatedDomains\" > $domainsFilePath"; then
@@ -130,7 +155,7 @@ if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "echo \"$updatedDomains\" > 
 fi
 
 # Save the updated domain list to the local file
-mv "$tempFilteredDomains" "$localDomainsFile"
+echo "$filteredDomains" >"$localDomainsFile"
 
 # Remove the temporary directory and its contents
 rm -rf "$tempDir"
@@ -140,4 +165,4 @@ if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "$reloadCommand"; then
   log_error_and_exit "Error: Failed to execute reload command"
 fi
 
-echo "$(format_date) - Script executed successfully" >> "$LOG_FILE"
+echo "$(format_date) - Script executed successfully" >>"$LOG_FILE"

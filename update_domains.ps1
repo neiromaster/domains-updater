@@ -84,12 +84,62 @@ if (-Not (Test-Path $tempDir)) {
     New-Item -ItemType Directory -Path $tempDir
 }
 
+function process_domain_files {
+    param (
+        [string]$remoteDomainsFile,
+        [string]$localDomainsFile
+    )
+
+    # Temporary files
+    $tempDir = "tmp"
+    $tempNormalizedRemoteDomains = "$tempDir/temp_normalized_remote_domains.txt"
+    $tempNormalizedLocalDomains = "$tempDir/temp_normalized_local_domains.txt"
+    $tempAllDomains = "$tempDir/temp_all_domains.txt"
+    $tempFilteredDomains = "$tempDir/temp_filtered_domains.txt"
+
+    # Normalize line endings to \n and write to new temporary files
+    Get-Content $remoteDomainsFile | ForEach-Object {$_ -replace "`r", ""} | Set-Content $tempNormalizedRemoteDomains
+    Get-Content $localDomainsFile | ForEach-Object {$_ -replace "`r", ""} | Set-Content $tempNormalizedLocalDomains
+
+    # Merge domain lists and remove duplicates and empty lines
+    Get-Content $tempNormalizedRemoteDomains, $tempNormalizedLocalDomains | Where-Object {$_ -ne "" -and $_ -notmatch '^#'} | Sort-Object | Get-Unique | Out-File $tempAllDomains -Encoding utf8
+
+    # Remove domains listed in the local file with #
+    $deleteDomains = Get-Content $tempNormalizedLocalDomains | Where-Object {$_ -match '^#'} | ForEach-Object {$_ -replace '^#'}
+    Get-Content $tempAllDomains | Where-Object {$_ -notin $deleteDomains} | Out-File $tempFilteredDomains -Encoding utf8
+
+    # Get the filtered domains
+    $filteredDomains = Get-Content $tempFilteredDomains
+
+    # Log added and removed domains
+    $currentDomains = Get-Content $tempNormalizedRemoteDomains
+    $newDomains = $filteredDomains
+
+    $addedDomains = Compare-Object -ReferenceObject $currentDomains -DifferenceObject $newDomains | Where-Object { $_.SideIndicator -eq "=>" } | Select-Object -ExpandProperty InputObject
+    $removedDomains = Compare-Object -ReferenceObject $currentDomains -DifferenceObject $newDomains | Where-Object { $_.SideIndicator -eq "<=" } | Select-Object -ExpandProperty InputObject
+
+    if ($addedDomains.Count -gt 0) {
+        Log-Message "Added domains: $($addedDomains -join ', ')"
+    }
+
+    if ($removedDomains.Count -gt 0) {
+        Log-Message "Removed domains: $($removedDomains -join ', ')"
+    }
+
+    # Return the filtered domains as an array
+    return $filteredDomains
+}
+
+# Temporary directory
+$tempDir = "tmp"
+
+# Ensure the tmp directory exists
+if (-Not (Test-Path $tempDir)) {
+    New-Item -ItemType Directory -Path $tempDir
+}
+
 # Temporary files
 $tempRemoteDomains = "$tempDir/temp_remote_domains.txt"
-$tempNormalizedRemoteDomains = "$tempDir/temp_normalized_remote_domains.txt"
-$tempNormalizedLocalDomains = "$tempDir/temp_normalized_local_domains.txt"
-$tempAllDomains = "$tempDir/temp_all_domains.txt"
-$tempFilteredDomains = "$tempDir/temp_filtered_domains.txt"
 
 # Read the domain list from the router and check for success
 $readDomains = ssh -i $sshKeyPath "$routerUser@$routerHost" "cat $domainsFilePath"
@@ -98,38 +148,12 @@ if ($LASTEXITCODE -ne 0) {
 }
 $readDomains | Out-File $tempRemoteDomains -Encoding utf8
 
-# Normalize line endings to \n and write to new temporary files
-Get-Content $tempRemoteDomains | ForEach-Object {$_ -replace "`r", ""} | Set-Content $tempNormalizedRemoteDomains
-Get-Content $localDomainsFile | ForEach-Object {$_ -replace "`r", ""} | Set-Content $tempNormalizedLocalDomains
+# Process main domain files
+$filteredDomains = process_domain_files -remoteDomainsFile $tempRemoteDomains -localDomainsFile $localDomainsFile
 
-# Merge domain lists and remove duplicates and empty lines
-Get-Content $tempNormalizedRemoteDomains, $tempNormalizedLocalDomains | Where-Object {$_ -ne "" -and $_ -notmatch '^#'} | Sort-Object | Get-Unique | Out-File $tempAllDomains -Encoding utf8
-
-# Remove domains listed in the local file with #
-$deleteDomains = Get-Content $tempNormalizedLocalDomains | Where-Object {$_ -match '^#'} | ForEach-Object {$_ -replace '^#'}
-Get-Content $tempAllDomains | Where-Object {$_ -notin $deleteDomains} | Out-File $tempFilteredDomains -Encoding utf8
-
-# Read the updated domain list into a variable
-$updatedDomains = Get-Content $tempFilteredDomains -Raw
-
-# Log added and removed domains
-$currentDomains = Get-Content $tempNormalizedRemoteDomains
-$newDomains = Get-Content $tempFilteredDomains
-
-$addedDomains = Compare-Object -ReferenceObject $currentDomains -DifferenceObject $newDomains | Where-Object { $_.SideIndicator -eq "=>" } | Select-Object -ExpandProperty InputObject
-$removedDomains = Compare-Object -ReferenceObject $currentDomains -DifferenceObject $newDomains | Where-Object { $_.SideIndicator -eq "<=" } | Select-Object -ExpandProperty InputObject
-
-if ($addedDomains.Count -gt 0) {
-    Log-Message "Added domains: $($addedDomains -join ', ')"
-}
-
-if ($removedDomains.Count -gt 0) {
-    Log-Message "Removed domains: $($removedDomains -join ', ')"
-}
-
-# Check if the remove domains file exists and copy it to the router
+# Process remove domain files if they exist
 if ($removeDomainsFilePath -and $localRemoveDomainsFile -and (Test-Path $localRemoveDomainsFile)) {
-    
+    $filteredRemoveDomains = process_domain_files -remoteDomainsFile $removeDomainsFilePath -localDomainsFile $localRemoveDomainsFile
     $scpResult = ssh -i $sshKeyPath "$routerUser@$routerHost" "cat > $removeDomainsFilePath" < $localRemoveDomainsFile
     if ($LASTEXITCODE -ne 0) {
         LogErrorAndExit "Error: Failed to copy remove domains file to the router"
@@ -138,6 +162,9 @@ if ($removeDomainsFilePath -and $localRemoveDomainsFile -and (Test-Path $localRe
     }
 }
 
+# Read the updated domain list into a variable
+$updatedDomains = $filteredDomains -join "`n"
+
 # Send the updated domain list back to the router via SSH using echo and check for success
 ssh -i $sshKeyPath "$routerUser@$routerHost" "echo `"$updatedDomains`" > $domainsFilePath"
 if ($LASTEXITCODE -ne 0) {
@@ -145,7 +172,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Save the updated domain list to the local file
-Copy-Item $tempFilteredDomains $localDomainsFile
+$filteredDomains | Out-File $localDomainsFile
 
 # Remove the temporary directory and its contents
 Remove-Item -Recurse -Force $tempDir
