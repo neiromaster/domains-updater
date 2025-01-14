@@ -108,7 +108,7 @@ process_domain_files() {
 }
 
 # Read the domain list from the router via SSH and check for success
-read -r -d '' remoteDomains < <(ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath")
+remoteDomains=$(ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath")
 if [ $? -ne 0 ]; then
   log_error_and_exit "Error: Failed to read domains from the router"
 fi
