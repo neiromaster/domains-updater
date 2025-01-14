@@ -73,9 +73,9 @@ routerHost=$ROUTER_HOST
 routerUser=$ROUTER_USER
 sshKeyPath=$SSH_KEY_PATH
 domainsFilePath=$DOMAINS_FILE_PATH
+localDomainsFile=$LOCAL_DOMAINS_FILE
 removeDomainsFilePath=$REMOVE_DOMAINS_FILE_PATH
 localRemoveDomainsFile=$LOCAL_REMOVE_DOMAINS_FILE
-localDomainsFile=$LOCAL_DOMAINS_FILE
 reloadCommand=$RELOAD_COMMAND
 
 # Temporary directory

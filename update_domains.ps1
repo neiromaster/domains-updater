@@ -71,9 +71,9 @@ $routerHost = $env:ROUTER_HOST
 $routerUser = $env:ROUTER_USER
 $sshKeyPath = $env:SSH_KEY_PATH
 $domainsFilePath = $env:DOMAINS_FILE_PATH
+$localDomainsFile = $env:LOCAL_DOMAINS_FILE
 $removeDomainsFilePath = $env:REMOVE_DOMAINS_FILE_PATH
 $localRemoveDomainsFile = $env:LOCAL_REMOVE_DOMAINS_FILE
-$localDomainsFile = $env:LOCAL_DOMAINS_FILE
 $reloadCommand = $env:RELOAD_COMMAND
 
 # Temporary directory
