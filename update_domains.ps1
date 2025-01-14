@@ -102,24 +102,20 @@ $reloadCommand = $env:RELOAD_COMMAND
 
 function Process-Domain-Files {
     param (
-        [string]$remoteDomains,
-        [string]$localDomains
+        [string[]]$remoteDomains,
+        [string[]]$localDomains
     )
 
-    # Normalize line endings to \n
-    $normalizedRemoteDomains = $remoteDomains -replace "`r", "`n" -split "`n" | Where-Object { $_ }
-    $normalizedLocalDomains = $localDomains -replace "`r", "`n" -split "`n" | Where-Object { $_ }
-
     # Merge domain lists and remove duplicates and empty lines
-    $allDomains = ($normalizedRemoteDomains + $normalizedLocalDomains) | Where-Object { $_ -ne "" -and $_ -notmatch '^#' } | Sort-Object | Get-Unique
+    $allDomains = @($remoteDomains + $localDomains) | Where-Object { $_ -ne "" -and $_ -notmatch '^#' } | Sort-Object -Unique
 
     # Remove domains listed in the local file with #
-    $deleteDomains = $normalizedLocalDomains | Where-Object { $_ -match '^#' } | ForEach-Object { $_ -replace '^#' }
+    $deleteDomains = $localDomains | Where-Object { $_ -match '^#' } | ForEach-Object { $_ -replace '^#' }
     $filteredDomains = $allDomains | Where-Object { $_ -notin $deleteDomains }
 
     # Log added and removed domains
-    $addedDomains = Compare-Object -ReferenceObject $normalizedRemoteDomains -DifferenceObject $filteredDomains | Where-Object { $_.SideIndicator -eq "=>" } | Select-Object -ExpandProperty InputObject
-    $removedDomains = Compare-Object -ReferenceObject $normalizedRemoteDomains -DifferenceObject $filteredDomains | Where-Object { $_.SideIndicator -eq "<=" } | Select-Object -ExpandProperty InputObject
+    $addedDomains = Compare-Object -ReferenceObject $remoteDomains -DifferenceObject $filteredDomains | Where-Object { $_.SideIndicator -eq "=>" } | Select-Object -ExpandProperty InputObject
+    $removedDomains = Compare-Object -ReferenceObject $remoteDomains -DifferenceObject $filteredDomains | Where-Object { $_.SideIndicator -eq "<=" } | Select-Object -ExpandProperty InputObject
 
     if ($addedDomains.Count -gt 0) {
         Log-Message "Added domains: $($addedDomains -join ', ')"
@@ -141,7 +137,7 @@ try {
 }
 
 # Process main domain files
-$filteredDomains = Process-Domain-Files -remoteDomains $remoteDomains -localDomains (Get-Content $localDomainsFile -Raw)
+$filteredDomains = Process-Domain-Files -remoteDomains $remoteDomains -localDomains (Get-Content $localDomainsFile)
 
 # Read the updated domain list into a variable
 $updatedDomains = $filteredDomains -join "`n"
@@ -159,9 +155,9 @@ $filteredDomains | Out-File $localDomainsFile
 # Process remove domain files if they exist
 if ($removeDomainsFilePath -and $localRemoveDomainsFile -and (Test-Path $localRemoveDomainsFile)) {
     $removeDomains = Get-Content $removeDomainsFilePath
-    $filteredRemoveDomains = Process-Domain-Files -remoteDomains $removeDomains -localDomains (Get-Content $localRemoveDomainsFile -Raw)
+    $filteredRemoveDomains = Process-Domain-Files -remoteDomains $removeDomains -localDomains (Get-Content $localRemoveDomainsFile)
     try {
-        ssh -i $sshKeyPath "$routerUser@$routerHost" "cat > $removeDomainsFilePath" < $localRemoveDomainsFile
+        ssh -i $sshKeyPath "$routerUser@$routerHost" "echo `"$filteredRemoveDomains`" > $removeDomainsFilePath"
         Log-Message "Remove domains file copied to the router successfully"
     } catch {
         LogErrorAndExit "Error: Failed to copy remove domains file to the router"
