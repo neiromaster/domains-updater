@@ -114,7 +114,15 @@ if [ $? -ne 0 ]; then
 fi
 
 # Process main domain files
-filteredDomains=$(process_domain_files "$remoteDomains" "$(cat "$localDomainsFile")")
+updatedDomains=$(process_domain_files "$remoteDomains" "$(cat "$localDomainsFile")")
+
+# Send the updated domain list back to the router via SSH using echo and check for success
+if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "echo \"$updatedDomains\" > $domainsFilePath"; then
+  log_error_and_exit "Error: Failed to update domains on the router"
+fi
+
+# Save the updated domain list to the local file
+echo "$updatedDomains" >"$localDomainsFile"
 
 # Process remove domain files if they exist
 if [ -n "$removeDomainsFilePath" ] && [ -n "$localRemoveDomainsFile" ] && [ -f "$localRemoveDomainsFile" ]; then
@@ -126,17 +134,6 @@ if [ -n "$removeDomainsFilePath" ] && [ -n "$localRemoveDomainsFile" ] && [ -f "
         log_message "Remove domains file copied to the router successfully"
     fi
 fi
-
-# Read the updated domain list into a variable
-updatedDomains="$filteredDomains"
-
-# Send the updated domain list back to the router via SSH using echo and check for success
-if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "echo \"$updatedDomains\" > $domainsFilePath"; then
-  log_error_and_exit "Error: Failed to update domains on the router"
-fi
-
-# Save the updated domain list to the local file
-echo "$filteredDomains" >"$localDomainsFile"
 
 # Execute the reload command and check for success
 if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "$reloadCommand"; then

@@ -143,18 +143,6 @@ try {
 # Process main domain files
 $filteredDomains = Process-Domain-Files -remoteDomains $remoteDomains -localDomains (Get-Content $localDomainsFile -Raw)
 
-# Process remove domain files if they exist
-if ($removeDomainsFilePath -and $localRemoveDomainsFile -and (Test-Path $localRemoveDomainsFile)) {
-    $removeDomains = Get-Content $removeDomainsFilePath
-    $filteredRemoveDomains = Process-Domain-Files -remoteDomains $removeDomains -localDomains (Get-Content $localRemoveDomainsFile -Raw)
-    try {
-        ssh -i $sshKeyPath "$routerUser@$routerHost" "cat > $removeDomainsFilePath" < $localRemoveDomainsFile
-        Log-Message "Remove domains file copied to the router successfully"
-    } catch {
-        LogErrorAndExit "Error: Failed to copy remove domains file to the router"
-    }
-}
-
 # Read the updated domain list into a variable
 $updatedDomains = $filteredDomains -join "`n"
 
@@ -167,6 +155,18 @@ try {
 
 # Save the updated domain list to the local file
 $filteredDomains | Out-File $localDomainsFile
+
+# Process remove domain files if they exist
+if ($removeDomainsFilePath -and $localRemoveDomainsFile -and (Test-Path $localRemoveDomainsFile)) {
+    $removeDomains = Get-Content $removeDomainsFilePath
+    $filteredRemoveDomains = Process-Domain-Files -remoteDomains $removeDomains -localDomains (Get-Content $localRemoveDomainsFile -Raw)
+    try {
+        ssh -i $sshKeyPath "$routerUser@$routerHost" "cat > $removeDomainsFilePath" < $localRemoveDomainsFile
+        Log-Message "Remove domains file copied to the router successfully"
+    } catch {
+        LogErrorAndExit "Error: Failed to copy remove domains file to the router"
+    }
+}
 
 # Execute the reload command and check for success
 try {
