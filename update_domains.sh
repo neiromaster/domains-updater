@@ -23,8 +23,21 @@ log_error_and_exit() {
 log_message "Script started"
 
 # Check for necessary tools
-if ! command -v ssh &>/dev/null || ! command -v grep &>/dev/null || ! command -v sort &>/dev/null; then
-  log_error_and_exit "Error: Required tools (ssh, grep, sort) are not installed"
+necessary_tools=("ssh" "grep" "sort")
+missing_tools=()
+
+for tool in "${necessary_tools[@]}"; do
+  if ! command -v "$tool" &>/dev/null; then
+    missing_tools+=("$tool")
+  fi
+done
+
+# If there are missing tools, log error and exit
+if [ ${#missing_tools[@]} -ne 0 ]; then
+  for tool in "${missing_tools[@]}"; do
+    log_message "Error: Required tool '$tool' is not installed"
+  done
+  log_error_and_exit "One or more required tools are missing: ${missing_tools[*]}"
 fi
 
 # Load environment variables from the .env file if it exists
@@ -34,32 +47,15 @@ if [ -f .env ]; then
   set +a
 fi
 
-# Verify if all environment variables are set and collect errors
+# Check environment variables
+required_env_vars=("ROUTER_HOST" "ROUTER_USER" "SSH_KEY_PATH" "DOMAINS_FILE_PATH" "LOCAL_DOMAINS_FILE" "RELOAD_COMMAND")
 errors=""
 
-if [ -z "$ROUTER_HOST" ]; then
-  errors+="Error: ROUTER_HOST variable is not set\n"
-fi
-
-if [ -z "$ROUTER_USER" ]; then
-  errors+="Error: ROUTER_USER variable is not set\n"
-fi
-
-if [ -z "$SSH_KEY_PATH" ]; then
-  errors+="Error: SSH_KEY_PATH variable is not set\n"
-fi
-
-if [ -z "$DOMAINS_FILE_PATH" ]; then
-  errors+="Error: DOMAINS_FILE_PATH variable is not set\n"
-fi
-
-if [ -z "$LOCAL_DOMAINS_FILE" ]; then
-  errors+="Error: LOCAL_DOMAINS_FILE variable is not set\n"
-fi
-
-if [ -z "$RELOAD_COMMAND" ]; then
-  errors+="Error: RELOAD_COMMAND variable is not set\n"
-fi
+for var in "${required_env_vars[@]}"; do
+  if [ -z "${!var}" ]; then
+    errors+="Error: $var variable is not set\n"
+  fi
+done
 
 # Output all errors and exit if any error is collected
 if [ -n "$errors" ]; then
@@ -85,7 +81,7 @@ process_domain_files() {
     local normalizedLocalDomains=$(echo "$localDomains" | tr -d '\r')
 
     # Merge domain lists and remove empty lines and lines starting with #
-    local allDomains=$(echo "$normalizedRemoteDomains" "$normalizedLocalDomains" | grep -v '^$' | grep -v '^#' | sort -u)
+    local allDomains=$(echo -e "$normalizedRemoteDomains\n$normalizedLocalDomains" | grep -v '^$' | grep -v '^#' | sort -u)
 
     # Remove domains listed in the local file with #
     local deleteDomains=$(echo "$normalizedLocalDomains" | grep '^#' | sed 's/^#//')
@@ -143,4 +139,4 @@ if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "$reloadCommand"; then
   log_error_and_exit "Error: Failed to execute reload command"
 fi
 
-echo "$(format_date) - Script executed successfully" >>"$LOG_FILE"
+log_message "Script executed successfully"
