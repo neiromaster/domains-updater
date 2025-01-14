@@ -86,15 +86,16 @@ mkdir -p "$tempDir"
 
 # Temporary files
 tempRemoteDomains="$tempDir/temp_remote_domains.txt"
-tempNormalizedRemoteDomains="$tempDir/temp_normalized_remote_domains.txt"
-tempNormalizedLocalDomains="$tempDir/temp_normalized_local_domains.txt"
-tempAllDomains="$tempDir/temp_all_domains.txt"
-tempFilteredDomains="$tempDir/temp_filtered_domains.txt"
 
 # Read the domain list from the router via SSH and check for success
 if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath" > "$tempRemoteDomains"; then
   log_error_and_exit "Error: Failed to read domains from the router"
 fi
+
+tempNormalizedRemoteDomains="$tempDir/temp_normalized_remote_domains.txt"
+tempNormalizedLocalDomains="$tempDir/temp_normalized_local_domains.txt"
+tempAllDomains="$tempDir/temp_all_domains.txt"
+tempFilteredDomains="$tempDir/temp_filtered_domains.txt"
 
 # Merge domain lists and remove empty lines and lines starting with #
 < "$tempRemoteDomains" tr -d '\r' > "$tempNormalizedRemoteDomains"
@@ -121,15 +122,6 @@ fi
 
 if [ -n "$removedDomains" ]; then
   log_message "Removed domains: $(echo "$removedDomains" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
-fi
-
-# Check if the remove domains file exists and copy it to the router
-if [ -n "$removeDomainsFilePath" ] && [ -n "$localRemoveDomainsFile" ] && [ -f "$localRemoveDomainsFile" ]; then
-  if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat > $removeDomainsFilePath" < "$localRemoveDomainsFile"; then
-    log_error_and_exit "Error: Failed to copy remove domains file to the router"
-  else
-    log_message "Remove domains file copied to the router successfully"
-  fi
 fi
 
 # Send the updated domain list back to the router via SSH using echo and check for success
