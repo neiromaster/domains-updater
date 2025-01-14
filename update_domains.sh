@@ -78,72 +78,54 @@ localRemoveDomainsFile=$LOCAL_REMOVE_DOMAINS_FILE
 reloadCommand=$RELOAD_COMMAND
 
 process_domain_files() {
-  local remoteDomainsFile="$1"
-  local localDomainsFile="$2"
+    local remoteDomainsFile="$1"
+    local localDomainsFile="$2"
 
-  local tempDir="tmp"
-  local tempNormalizedRemoteDomains="$tempDir/temp_normalized_remote_domains.txt"
-  local tempNormalizedLocalDomains="$tempDir/temp_normalized_local_domains.txt"
-  local tempAllDomains="$tempDir/temp_all_domains.txt"
-  local tempFilteredDomains="$tempDir/temp_filtered_domains.txt"
+    # Normalize line endings to \n
+    local normalizedRemoteDomains=$(<"$remoteDomainsFile" tr -d '\r')
+    local normalizedLocalDomains=$(<"$localDomainsFile" tr -d '\r')
 
-  # Normalize line endings to \n
-  <"$remoteDomainsFile" tr -d '\r' >"$tempNormalizedRemoteDomains"
-  <"$localDomainsFile" tr -d '\r' >"$tempNormalizedLocalDomains"
+    # Merge domain lists and remove empty lines and lines starting with #
+    local allDomains=$(echo "$normalizedRemoteDomains" "$normalizedLocalDomains" | grep -v '^$' | grep -v '^#' | sort -u)
 
-  # Merge domain lists and remove empty lines and lines starting with #
-  cat "$tempNormalizedRemoteDomains" "$tempNormalizedLocalDomains" | grep -v '^$' | grep -v '^#' | sort -u >"$tempAllDomains"
+    # Remove domains listed in the local file with #
+    local deleteDomains=$(echo "$normalizedLocalDomains" | grep '^#' | sed 's/^#//')
+    local filteredDomains=$(echo "$allDomains" | grep -vxf <(echo "$deleteDomains"))
 
-  # Remove domains listed in the local file with #
-  grep -vxf <(grep '^#' "$tempNormalizedLocalDomains" | sed 's/^#//') "$tempAllDomains" >"$tempFilteredDomains"
+    # Log added and removed domains
+    local addedDomains=$(comm -13 <(echo "$normalizedRemoteDomains" | sort) <(echo "$filteredDomains" | sort))
+    local removedDomains=$(comm -23 <(echo "$normalizedRemoteDomains" | sort) <(echo "$filteredDomains" | sort))
 
-  # Get the filtered domains
-  local filteredDomains=$(cat "$tempFilteredDomains")
+    if [ -n "$addedDomains" ]; then
+      log_message "Added domains: $(echo "$addedDomains" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+    fi
 
-  # Log added and removed domains
-  local currentDomains=$(cat "$tempNormalizedRemoteDomains")
-  local newDomains=$(echo "$filteredDomains")
+    if [ -n "$removedDomains" ]; then
+      log_message "Removed domains: $(echo "$removedDomains" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+    fi
 
-  local addedDomains=$(comm -13 <(echo "$currentDomains" | sort) <(echo "$newDomains" | sort))
-  local removedDomains=$(comm -23 <(echo "$currentDomains" | sort) <(echo "$newDomains" | sort))
-
-  if [ -n "$addedDomains" ]; then
-    log_message "Added domains: $(echo "$addedDomains" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
-  fi
-
-  if [ -n "$removedDomains" ]; then
-    log_message "Removed domains: $(echo "$removedDomains" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
-  fi
-
-  # Return the filtered domains as a string
-  echo "$filteredDomains"
+    # Return the filtered domains as a string
+    echo "$filteredDomains"
 }
 
-# Temporary directory
-tempDir="tmp"
-
-# Ensure the tmp directory exists
-mkdir -p "$tempDir"
-
-# Temporary files
-tempRemoteDomains="$tempDir/temp_remote_domains.txt"
-
 # Read the domain list from the router via SSH and check for success
-if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath" >"$tempRemoteDomains"; then
+read -r -d '' remoteDomains < <(ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath")
+if [ $? -ne 0 ]; then
   log_error_and_exit "Error: Failed to read domains from the router"
 fi
 
 # Process main domain files
-filteredDomains=$(process_domain_files "$tempRemoteDomains" "$localDomainsFile")
+filteredDomains=$(process_domain_files "$remoteDomains" "$localDomainsFile")
 
 # Process remove domain files if they exist
 if [ -n "$removeDomainsFilePath" ] && [ -n "$localRemoveDomainsFile" ] && [ -f "$localRemoveDomainsFile" ]; then
-  filteredRemoveDomains=$(process_domain_files "$removeDomainsFilePath" "$localRemoveDomainsFile")
-  if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat > $removeDomainsFilePath" <"$localRemoveDomainsFile"; then
-    log_error_and_exit "Error: Failed to copy remove domains file to the router"
-  else
-    log_message "Remove domains file copied to the router successfully"
-  fi
+    read -r -d '' removeDomains < <(cat "$removeDomainsFilePath")
+    filteredRemoveDomains=$(process_domain_files "$removeDomains" "$localRemoveDomainsFile")
+    if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat > $removeDomainsFilePath" < "$localRemoveDomainsFile"; then
+        log_error_and_exit "Error: Failed to copy remove domains file to the router"
+    else
+        log_message "Remove domains file copied to the router successfully"
+    fi
 fi
 
 # Read the updated domain list into a variable
@@ -158,7 +140,7 @@ fi
 echo "$filteredDomains" >"$localDomainsFile"
 
 # Remove the temporary directory and its contents
-rm -rf "$tempDir"
+rm -rf "tmp"
 
 # Execute the reload command and check for success
 if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "$reloadCommand"; then
