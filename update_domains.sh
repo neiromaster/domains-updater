@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Функция для форматирования даты и времени
+# Function to format date and time
 format_date() {
   date +"%Y/%m/%d-%H:%M:%S"
 }
@@ -77,19 +77,23 @@ process_domain_files() {
     local localDomains="$2"
 
     # Normalize line endings to \n
-    local normalizedRemoteDomains=$(echo "$remoteDomains" | tr -d '\r')
-    local normalizedLocalDomains=$(echo "$localDomains" | tr -d '\r')
+    local normalizedRemoteDomains normalizedLocalDomains
+    normalizedRemoteDomains=$(echo "$remoteDomains" | tr -d '\r')
+    normalizedLocalDomains=$(echo "$localDomains" | tr -d '\r')
 
     # Merge domain lists and remove empty lines and lines starting with #
-    local allDomains=$(echo -e "$normalizedRemoteDomains\n$normalizedLocalDomains" | grep -v '^$' | grep -v '^#' | sort -u)
+    local allDomains
+    allDomains=$(echo -e "$normalizedRemoteDomains\n$normalizedLocalDomains" | grep -v '^$' | grep -v '^#' | sort -u)
 
     # Remove domains listed in the local file with #
-    local deleteDomains=$(echo "$normalizedLocalDomains" | grep '^#' | sed 's/^#//')
-    local filteredDomains=$(echo "$allDomains" | grep -vxf <(echo "$deleteDomains"))
+    local deleteDomains filteredDomains
+    deleteDomains=$(echo "$normalizedLocalDomains" | grep '^#' | sed 's/^#//')
+    filteredDomains=$(echo "$allDomains" | grep -vxf <(echo "$deleteDomains"))
 
     # Log added and removed domains
-    local addedDomains=$(comm -13 <(echo "$normalizedRemoteDomains" | sort) <(echo "$filteredDomains" | sort))
-    local removedDomains=$(comm -23 <(echo "$normalizedRemoteDomains" | sort) <(echo "$filteredDomains" | sort))
+    local addedDomains removedDomains
+    addedDomains=$(comm -13 <(echo "$normalizedRemoteDomains" | sort) <(echo "$filteredDomains" | sort))
+    removedDomains=$(comm -23 <(echo "$normalizedRemoteDomains" | sort) <(echo "$filteredDomains" | sort))
 
     if [ -n "$addedDomains" ]; then
       log_message "Added domains: $(echo "$addedDomains" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
