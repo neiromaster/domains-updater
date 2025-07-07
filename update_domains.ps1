@@ -105,13 +105,16 @@ function Process-Domain-Files {
         [string[]]$remoteDomains,
         [string[]]$localDomains
     )
-
+   
     # Merge domain lists and remove duplicates and empty lines
     $allDomains = @($remoteDomains + $localDomains) | Where-Object { $_ -ne "" -and $_ -notmatch '^#' } | Sort-Object -Unique
 
     # Remove domains listed in the local file with #
     $deleteDomains = $localDomains | Where-Object { $_ -match '^#' } | ForEach-Object { $_ -replace '^#' }
     $filteredDomains = $allDomains | Where-Object { $_ -notin $deleteDomains }
+
+    if (-not $remoteDomains) { $remoteDomains = @() }
+    if (-not $filteredDomains) { $filteredDomains = @() }
 
     # Log added and removed domains
     $addedDomains = Compare-Object -ReferenceObject $remoteDomains -DifferenceObject $filteredDomains | Where-Object { $_.SideIndicator -eq "=>" } | Select-Object -ExpandProperty InputObject
@@ -132,7 +135,8 @@ function Process-Domain-Files {
 # Read the domain list from the router and check for success
 try {
     $remoteDomains = ssh -i $sshKeyPath "$routerUser@$routerHost" "cat $domainsFilePath"
-} catch {
+}
+catch {
     LogErrorAndExit "Error: Failed to read domains from the router"
 }
 
@@ -145,7 +149,8 @@ $updatedDomains = $filteredDomains -join "`n"
 # Send the updated domain list back to the router via SSH using echo and check for success
 try {
     ssh -i $sshKeyPath "$routerUser@$routerHost" "echo `"$updatedDomains`" > $domainsFilePath"
-} catch {
+}
+catch {
     LogErrorAndExit "Error: Failed to update domains on the router"
 }
 
@@ -159,7 +164,8 @@ if ($removeDomainsFilePath -and $localRemoveDomainsFile -and (Test-Path $localRe
     try {
         ssh -i $sshKeyPath "$routerUser@$routerHost" "echo `"$filteredRemoveDomains`" > $removeDomainsFilePath"
         Log-Message "Remove domains file copied to the router successfully"
-    } catch {
+    }
+    catch {
         LogErrorAndExit "Error: Failed to copy remove domains file to the router"
     }
 }
@@ -167,7 +173,8 @@ if ($removeDomainsFilePath -and $localRemoveDomainsFile -and (Test-Path $localRe
 # Execute the reload command and check for success
 try {
     ssh -i $sshKeyPath "$routerUser@$routerHost" "$reloadCommand"
-} catch {
+}
+catch {
     LogErrorAndExit "Error: Failed to execute reload command"
 }
 
