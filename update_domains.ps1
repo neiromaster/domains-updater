@@ -134,7 +134,7 @@ function Process-Domain-Files {
 
 # Read the domain list from the router and check for success
 try {
-    $remoteDomains = ssh -i $sshKeyPath "$routerUser@$routerHost" "cat $domainsFilePath"
+    $remoteDomains = ssh -i $sshKeyPath "$routerUser@$routerHost" "[ -f $domainsFilePath ] && cat $domainsFilePath || echo ''"
 }
 catch {
     LogErrorAndExit "Error: Failed to read domains from the router"
@@ -159,15 +159,30 @@ $filteredDomains | Out-File $localDomainsFile
 
 # Process remove domain files if they exist
 if ($removeDomainsFilePath -and $localRemoveDomainsFile -and (Test-Path $localRemoveDomainsFile)) {
-    $removeDomains = Get-Content $removeDomainsFilePath
-    $filteredRemoveDomains = Process-Domain-Files -remoteDomains $removeDomains -localDomains (Get-Content $localRemoveDomainsFile)
     try {
-        ssh -i $sshKeyPath "$routerUser@$routerHost" "echo `"$filteredRemoveDomains`" > $removeDomainsFilePath"
-        Log-Message "Remove domains file copied to the router successfully"
+        # Read the remove domain list from the router, handle if the file does not exist
+        $remoteRemoveDomains = ssh -i $sshKeyPath "$routerUser@$routerHost" "[ -f $removeDomainsFilePath ] && cat $removeDomainsFilePath || echo ''"
     }
     catch {
-        LogErrorAndExit "Error: Failed to copy remove domains file to the router"
+        LogErrorAndExit "Error: Failed to read remove domains from the router"
     }
+
+    $localRemoveDomains = Get-Content $localRemoveDomainsFile
+
+    # Process remove domain files
+    $updatedRemoveDomains = Process-Domain-Files -remoteDomains $remoteRemoveDomains -localDomains $localRemoveDomains
+
+    # Send the updated remove domain list back to the router
+    try {
+        ssh -i $sshKeyPath "$routerUser@$routerHost" "echo `"$($updatedRemoveDomains -join "`n")`" > $removeDomainsFilePath"
+    }
+    catch {
+        LogErrorAndExit "Error: Failed to update remove domains on the router"
+    }
+
+    # Save the updated remove domain list to the local file
+    $updatedRemoveDomains | Out-File $localRemoveDomainsFile
+    Log-Message "Remove domains file processed and updated successfully"
 }
 
 # Execute the reload command and check for success
