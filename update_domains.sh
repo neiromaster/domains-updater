@@ -107,8 +107,8 @@ process_domain_files() {
     echo "$filteredDomains"
 }
 
-# Read the domain list from the router via SSH and check for success
-remoteDomains=$(ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat $domainsFilePath")
+# Read the domain list from the router via SSH, handle if the file does not exist
+remoteDomains=$(ssh -i "$sshKeyPath" "$routerUser@$routerHost" "[ -f $domainsFilePath ] && cat $domainsFilePath || echo ''")
 if [ $? -ne 0 ]; then
   log_error_and_exit "Error: Failed to read domains from the router"
 fi
@@ -126,13 +126,25 @@ echo "$updatedDomains" >"$localDomainsFile"
 
 # Process remove domain files if they exist
 if [ -n "$removeDomainsFilePath" ] && [ -n "$localRemoveDomainsFile" ] && [ -f "$localRemoveDomainsFile" ]; then
-    removeDomains=$(cat "$removeDomainsFilePath")
-    filteredRemoveDomains=$(process_domain_files "$removeDomains" "$(cat "$localRemoveDomainsFile")")
-    if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "cat > $removeDomainsFilePath" < "$localRemoveDomainsFile"; then
-        log_error_and_exit "Error: Failed to copy remove domains file to the router"
-    else
-        log_message "Remove domains file copied to the router successfully"
+    # Read the remove domain list from the router, handle if the file does not exist
+    remoteRemoveDomains=$(ssh -i "$sshKeyPath" "$routerUser@$routerHost" "[ -f $removeDomainsFilePath ] && cat $removeDomainsFilePath || echo ''")
+    if [ $? -ne 0 ]; then
+        log_error_and_exit "Error: Failed to read remove domains from the router"
     fi
+
+    localRemoveDomains=$(cat "$localRemoveDomainsFile")
+
+    # Process remove domain files
+    updatedRemoveDomains=$(process_domain_files "$remoteRemoveDomains" "$localRemoveDomains")
+
+    # Send the updated remove domain list back to the router
+    if ! ssh -i "$sshKeyPath" "$routerUser@$routerHost" "echo \"$updatedRemoveDomains\" > $removeDomainsFilePath"; then
+        log_error_and_exit "Error: Failed to update remove domains on the router"
+    fi
+
+    # Save the updated remove domain list to the local file
+    echo "$updatedRemoveDomains" > "$localRemoveDomainsFile"
+    log_message "Remove domains file processed and updated successfully"
 fi
 
 # Execute the reload command and check for success
